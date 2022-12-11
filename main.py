@@ -33,7 +33,7 @@ def add_tag(filename: str, title: str, author: str, playlist: str, thmbn_url: st
     ]
     audio.save()
 
-def main(playlist: str, skip: bool, oauth: bool) -> int:
+def main(playlist: str, start: int, stop: int, skip: bool, oauth: bool) -> int:
     p = pytube.Playlist(playlist)
     p_dir = p.title
 
@@ -42,7 +42,7 @@ def main(playlist: str, skip: bool, oauth: bool) -> int:
 
     errors = 0
 
-    for video in p.videos:
+    for video in p.videos[start:stop]:
         video.oauth = oauth
         thumbnail = video.thumbnail_url
         cback = lambda _st, nm: add_tag(nm, video.title, video.author, p.title, thumbnail)
@@ -65,6 +65,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("playlist_url", nargs='?', default="", help="URL of the playlist to download")
     parser.add_argument("-s", "--skip", action="store_true", help="skip existing files")
     parser.add_argument("-o", "--oauth", action="store_true", help="login to YouTube before downloading")
+    parser.add_argument("--start", action="store", default=0, type=int, help="video index to start on (counts from 0)")
+    parser.add_argument("--stop", action="store", default=-1, type=int, help="video index to stop on (non-inclusive)")
     return parser.parse_args()
 
 
@@ -75,7 +77,7 @@ if __name__ == "__main__":
     if playlist == "":
         playlist = input("Por favor ingrese la url de la playlist a descargar: ")
 
-    errors = main(playlist, args.skip, args.oauth)
+    errors = main(playlist, args.start, args.stop, args.skip, args.oauth)
 
     if errors > 0:
         print(f"{errors} errors occured. Running with --oauth (or -o) may solve some of them.")
