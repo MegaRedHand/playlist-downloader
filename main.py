@@ -35,7 +35,7 @@ def add_tag(filename: str, title: str, author: str, playlist: str, thmbn_url: st
 
     audio.save()
 
-def main(playlist: str, start: int, stop: int, skip: bool, oauth: bool, icons: bool) -> int:
+def main(playlist: str, args: argparse.Namespace) -> int:
     p = pytube.Playlist(playlist)
     p_dir = p.title
 
@@ -44,14 +44,14 @@ def main(playlist: str, start: int, stop: int, skip: bool, oauth: bool, icons: b
 
     errors = 0
 
-    for video in p.videos[start:stop]:
-        video.oauth = oauth
+    for video in p.videos[args.start:args.stop]:
+        video.oauth = args.oauth
         thumbnail = video.thumbnail_url
-        cback = lambda _st, nm: add_tag(nm, video.title, video.author, p.title, thumbnail if icons else "")
+        cback = lambda _st, nm: add_tag(nm, video.title, video.author, p.title, thumbnail if args.icons else "")
         video.register_on_complete_callback(cback)
         try:
             stream = video.streams.get_audio_only()
-            stream.download(filename_prefix=f"{video.author} - ", skip_existing=skip)
+            stream.download(filename_prefix=f"{video.author} - ", skip_existing=args.skip)
         except Exception:
             print(f"Error downloading video: {video.title} ({video.watch_url})")
             errors += 1
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     if playlist == "":
         playlist = input("Por favor ingrese la url de la playlist a descargar: ")
 
-    errors = main(playlist, args.start, args.stop, args.skip, args.oauth, not args.no_icons)
+    errors = main(playlist, args)
 
     if errors > 0:
         print(f"{errors} errors occured. Running with --oauth (or -o) may solve some of them.")
