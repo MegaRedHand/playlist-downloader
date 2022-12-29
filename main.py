@@ -61,7 +61,7 @@ def filter_videos(videos: Iterable[pytube.YouTube], start: str, stop: str):
 
 def main(playlist: str, args: argparse.Namespace) -> int:
     p = pytube.Playlist(playlist)
-    p_dir = p.title
+    p_dir = p.title if args.output is None else args.output
 
     os.makedirs(p_dir, exist_ok=True)
     os.chdir(p_dir)
@@ -94,7 +94,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("playlist_url", nargs='?', default="", help="URL of the playlist to download")
     parser.add_argument("-s", "--skip", action="store_true", help="skip existing files")
-    parser.add_argument("-o", "--oauth", action="store_true", help="login to YouTube before downloading")
+    parser.add_argument("-o", "--output", action="store", help="path to output directory")
+    parser.add_argument("--oauth", action="store_true", help="login to YouTube before downloading")
     parser.add_argument("--start", action="store", help="video index to start on (counts from 0)")
     parser.add_argument("--stop", action="store", help="video index to stop on (non-inclusive)")
     parser.add_argument("--no-icons", action="store_true", help="don't add icons to audio files")
