@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import argparse
+from typing import Iterable
 from mutagen import mp4
 import os
 import pytube
@@ -35,6 +36,29 @@ def add_tag(filename: str, title: str, author: str, playlist: str, thmbn_url: st
 
     audio.save()
 
+
+def filter_videos(videos: Iterable[pytube.YouTube], start: str, stop: str):
+    start = None if start is None else start.strip()
+    stop = None if stop is None else stop.strip()
+    filtered = []
+    start_flag = start is None
+
+    for v in videos:
+        title = v.title.strip()
+
+        if not start_flag:
+            if title != start:
+                continue
+            start_flag = True
+
+        filtered.append(v)
+
+        if title == stop:
+            break
+
+    return filtered
+
+
 def main(playlist: str, args: argparse.Namespace) -> int:
     p = pytube.Playlist(playlist)
     p_dir = p.title
@@ -44,7 +68,11 @@ def main(playlist: str, args: argparse.Namespace) -> int:
 
     errors = 0
 
-    for video in p.videos[args.start:args.stop]:
+    videos = filter_videos(p.videos, args.start, args.stop)
+
+    print(f"Downloading {len(videos)} videos")
+
+    for video in videos:
         video.oauth = args.oauth
         thumbnail = video.thumbnail_url
         cback = lambda _st, nm: add_tag(nm, video.title, video.author, p.title, thumbnail if args.icons else "")
@@ -67,8 +95,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("playlist_url", nargs='?', default="", help="URL of the playlist to download")
     parser.add_argument("-s", "--skip", action="store_true", help="skip existing files")
     parser.add_argument("-o", "--oauth", action="store_true", help="login to YouTube before downloading")
-    parser.add_argument("--start", action="store", default=0, type=int, help="video index to start on (counts from 0)")
-    parser.add_argument("--stop", action="store", default=-1, type=int, help="video index to stop on (non-inclusive)")
+    parser.add_argument("--start", action="store", help="video index to start on (counts from 0)")
+    parser.add_argument("--stop", action="store", help="video index to stop on (non-inclusive)")
     parser.add_argument("--no-icons", action="store_true", help="don't add icons to audio files")
     return parser.parse_args()
 
