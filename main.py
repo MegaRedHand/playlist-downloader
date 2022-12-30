@@ -1,11 +1,11 @@
 #!/usr/bin/python3
 import argparse
+import pathlib
 from typing import Iterable
-from mutagen import mp4
-import os
+from mutagen import mp3
+import os, sys, re
 import pytube
 import requests
-import sys
 
 
 TRACK_TITLE = "\xa9nam"
@@ -16,7 +16,8 @@ COVERS = "covr"
 
 
 def add_tag(filename: str, title: str, author: str, playlist: str, thmbn_url: str) -> None:
-    audio = mp4.Open(filename)
+    return
+    audio = mp3.Open(filename)
     audio.add_tags()
     audio[TRACK_TITLE] = title
     audio[ALBUM] = playlist
@@ -26,18 +27,18 @@ def add_tag(filename: str, title: str, author: str, playlist: str, thmbn_url: st
     if thmbn_url != "":
         r = requests.get(thmbn_url)
         if r.headers["content-type"] == 'image/jpeg':
-            img_format = mp4.MP4Cover.FORMAT_JPEG
+            img_format = mp3.MP4Cover.FORMAT_JPEG
         else:
-            img_format = mp4.MP4Cover.FORMAT_PNG
+            img_format = mp3.MP4Cover.FORMAT_PNG
             print(r.headers["content-type"], file=sys.stderr)
         audio[COVERS] = [
-            mp4.MP4Cover(r.content, imageformat=img_format)
+            mp3.MP4Cover(r.content, imageformat=img_format)
         ]
 
-    audio.save()
+    audio.save(filename)
 
 
-def filter_videos(videos: Iterable[pytube.YouTube], start: str, stop: str):
+def filter_videos(videos: Iterable[pytube.YouTube], start: str, stop: str) -> Iterable[pytube.YouTube]:
     start = None if start is None else start.strip()
     stop = None if stop is None else stop.strip()
     filtered = []
@@ -59,12 +60,17 @@ def filter_videos(videos: Iterable[pytube.YouTube], start: str, stop: str):
     return filtered
 
 
+def strip_nonstandard(name):
+    name = re.sub(r'[^\w\(\)\s-]', 'x', name)
+    return name.strip('-_')
+
+
 def main(playlist: str, args: argparse.Namespace) -> int:
     p = pytube.Playlist(playlist)
-    p_dir = p.title if args.output is None else args.output
+
+    p_dir = pathlib.Path(strip_nonstandard(p.title) if args.output is None else args.output)
 
     os.makedirs(p_dir, exist_ok=True)
-    os.chdir(p_dir)
 
     errors = 0
 
@@ -73,15 +79,17 @@ def main(playlist: str, args: argparse.Namespace) -> int:
     print(f"Downloading {len(videos)} videos")
 
     for video in videos:
-        video.oauth = args.oauth
+        video.use_oauth = args.oauth
         thumbnail = video.thumbnail_url
-        cback = lambda _st, nm: add_tag(nm, video.title, video.author, p.title, thumbnail if args.icons else "")
+        cback = lambda _st, nm: add_tag(nm, video.title, video.author, p.title, thumbnail if not args.no_icons else "")
         video.register_on_complete_callback(cback)
         try:
             stream = video.streams.get_audio_only()
-            stream.download(filename_prefix=f"{video.author} - ", skip_existing=args.skip)
-        except Exception:
+            output = p_dir.joinpath(f"{strip_nonstandard(video.author)} - {strip_nonstandard(video.title)}.mp3")
+            stream.download(filename=output, skip_existing=args.skip)
+        except Exception as e:
             print(f"Error downloading video: {video.title} ({video.watch_url})")
+            print(e, file=sys.stderr)
             errors += 1
 
     return errors
