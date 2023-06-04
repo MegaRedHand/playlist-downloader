@@ -43,6 +43,7 @@ def filter_videos(videos: Iterable[pytube.YouTube], start: Optional[int], stop: 
     if stop is not None:
         filtered = itertools.islice(videos, start or 0, stop)
     elif start is not None:
+        videos = iter(videos)
         for _ in itertools.islice(videos, start):
             pass  # exhaust first `start` videos
         filtered = videos
