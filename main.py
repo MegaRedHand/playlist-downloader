@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 import argparse
 import pathlib
-from typing import Iterable
+import itertools
+from typing import Iterable, Optional
 from mutagen import mp3
 import os, sys, re
 import pytube
@@ -38,24 +39,15 @@ def add_tag(filename: str, title: str, author: str, playlist: str, thmbn_url: st
     audio.save(filename)
 
 
-def filter_videos(videos: Iterable[pytube.YouTube], start: str, stop: str) -> Iterable[pytube.YouTube]:
-    start = None if start is None else start.strip()
-    stop = None if stop is None else stop.strip()
-    filtered = []
-    start_flag = start is None
-
-    for v in videos:
-        title = v.title.strip()
-
-        if not start_flag:
-            if title != start:
-                continue
-            start_flag = True
-
-        filtered.append(v)
-
-        if title == stop:
-            break
+def filter_videos(videos: Iterable[pytube.YouTube], start: Optional[int], stop: Optional[int]) -> Iterable[pytube.YouTube]:
+    if stop is not None:
+        filtered = itertools.islice(videos, start or 0, stop)
+    elif start is not None:
+        for _ in itertools.islice(videos, start):
+            pass  # exhaust first `start` videos
+        filtered = videos
+    else:
+        filtered = videos
 
     return filtered
 
@@ -74,9 +66,12 @@ def main(playlist: str, args: argparse.Namespace) -> int:
 
     errors = 0
 
-    videos = filter_videos(p.videos, args.start, args.stop)
+    start = None if args.start is None else int(args.start)
+    stop = None if args.stop is None else int(args.stop)
 
-    print(f"Downloading {len(videos)} videos")
+    videos = filter_videos(p.videos, start, stop)
+
+    n_downloaded = 0
 
     for video in videos:
         video.use_oauth = args.oauth
@@ -86,12 +81,15 @@ def main(playlist: str, args: argparse.Namespace) -> int:
         try:
             stream = video.streams.get_audio_only()
             output = p_dir.joinpath(f"{strip_nonstandard(video.author)} - {strip_nonstandard(video.title)}.mp3")
+            print(f"Downloading '{video.title}' ...")
             stream.download(filename=output, skip_existing=args.skip)
+            n_downloaded += 1
         except Exception as e:
             print(f"Error downloading video: {video.title} ({video.watch_url})")
             print(e, file=sys.stderr)
             errors += 1
 
+    print(f"Finished downloading {n_downloaded} videos")
     return errors
 
 
